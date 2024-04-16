@@ -1,0 +1,13 @@
+services:
+  foxeyedb:
+    image: postgres:16-alpine
+    container_name: foxeye
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=foxeyedb
+      - POSTGRES_PASSWORD=foxeye
+      - POSTGRES_USER=foxeye
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
