@@ -1,0 +1,19 @@
+{
+  "sites": [
+    {
+    "url": "https://www.wikipedia.org/",
+    "depth": 2,
+    "rps": 2
+    },
+    {
+      "url": "https://aur.archlinux.org/packages",
+      "depth": 1,
+      "rps": 5
+    },
+    {
+      "url": "https://www.w3schools.com/",
+      "depth": 2,
+      "rps": 5
+    }
+  ]
+}

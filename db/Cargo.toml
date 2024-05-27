@@ -10,5 +10,5 @@ sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "post
 redis = "0.25.3"
 deadpool-redis = "0.15.0"
 thiserror = "1"
-log = "0.4.21"
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros"] }
+tracing = { version = "0.1.40"}

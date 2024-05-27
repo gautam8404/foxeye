@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- Add up migration script here
 CREATE TABLE IF NOT EXISTS urls (
     url_id BIGSERIAL PRIMARY KEY,
@@ -22,6 +24,13 @@ CREATE TABLE IF NOT EXISTS document (
     content TEXT,
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS chunk (
+    chunk_id BIGSERIAL PRIMARY KEY ,
+    doc_id BIGSERIAL,
+    chunk_data TEXT,
+    embedding vector(512)
 );
 
 -- page links

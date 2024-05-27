@@ -1,8 +1,11 @@
 [workspace]
 resolver = "2"
 
-members = [ "crawler",
+members = [
+    "crawler",
     "db",
 ]
 
+[workspace.dependencies]
+db = { path = "db" }
 

@@ -1,16 +1,16 @@
-use std::sync::Arc;
 use deadpool_redis::{Config, Connection, Pool as RedisPool, Runtime};
-use log::error;
 use redis::cmd;
-use sqlx::{PgConnection, PgPool, Postgres};
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::{PgPool, Postgres};
+use tracing::error;
+
 use crate::DbError;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Db {
     pub pg: PgPool,
-    pub redis: RedisPool
+    pub redis: RedisPool,
 }
 
 impl Db {
@@ -25,10 +25,10 @@ impl Db {
             DbError::Other(e.to_string())
         })?;
 
-
         let pg = PgPoolOptions::new()
             .max_connections(max_connections)
-            .connect(&database_url).await?;
+            .connect(&database_url)
+            .await?;
 
         let conf = Config::from_url(redis_url);
         let redis = conf.create_pool(Some(Runtime::Tokio1)).map_err(|e| {
@@ -36,17 +36,19 @@ impl Db {
             DbError::Other(format!("Db::new: Error creating Redis pool {e}"))
         })?;
 
-        Ok(Self {
-            pg,
-            redis
-        })
+        Ok(Self { pg, redis })
     }
 
-    pub async fn get_pg(&self) -> Result<PoolConnection<Postgres> , DbError> {
+    pub async fn get_pg(&self) -> Result<PoolConnection<Postgres>, DbError> {
         Ok(self.pg.acquire().await?)
     }
 
-    async fn cmd_set(conn: &mut Connection, key: &str, val: &[u8], ttl: Option<u16>) -> Result<(), DbError> {
+    async fn cmd_set(
+        conn: &mut Connection,
+        key: &str,
+        val: &[u8],
+        ttl: Option<u16>,
+    ) -> Result<(), DbError> {
         let mut command = cmd("SET");
 
         command.arg(key).arg(val);
@@ -63,14 +65,20 @@ impl Db {
         Ok(cmd("GET").arg(key).query_async(conn).await?)
     }
 
+    async fn cmd_del(conn: &mut Connection, key: &str) -> Result<(), DbError> {
+        cmd("DEL").arg(key).query_async(conn).await?;
+
+        Ok(())
+    }
+
     pub async fn set_cache(&self, key: &str, val: &[u8], ttl: Option<u16>) -> Result<(), DbError> {
         let mut conn = self.redis.get().await.map_err(|e| {
             error!("Db.set_cache: failed to get redis connection {e:?}");
             DbError::Other(format!("failed to get redis connection {e:?}"))
         })?;
-        
+
         Self::cmd_set(&mut conn, key, val, ttl).await?;
-        
+
         Ok(())
     }
 
@@ -79,8 +87,45 @@ impl Db {
             error!("Db.set_cache: failed to get redis connection {e:?}");
             DbError::Other(format!("failed to get redis connection {e:?}"))
         })?;
-        
-        
+
         Self::cmd_get(&mut conn, key).await
-    } 
+    }
+
+    pub async fn del_cache(&self, key: &str) -> Result<(), DbError> {
+        let mut conn = self.redis.get().await.map_err(|e| {
+            error!("Db.set_cache: failed to get redis connection {e:?}");
+            DbError::Other(format!("failed to get redis connection {e:?}"))
+        })?;
+
+        Self::cmd_del(&mut conn, key).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_set_get_del_cache() {
+        // Set up environment variables
+
+        // Create a new Db instance
+        let db = Db::new(5).await.expect("Failed to create Db instance");
+
+        // Test set_cache
+        let key = "test_key";
+        let value = b"test_value";
+        db.set_cache(key, value, None)
+            .await
+            .expect("Failed to set cache");
+
+        // Test get_cache
+        let retrieved_value = db.get_cache(key).await.expect("Failed to get cache");
+        assert_eq!(retrieved_value, value);
+
+        // Test del_cache
+        db.del_cache(key).await.expect("Failed to delete cache");
+        let result = db.get_cache(key).await.expect("failed to get cache");
+        assert!(result.is_empty()); // Key should not exist anymore
+    }
 }
