@@ -6,6 +6,7 @@ use std::time::{Duration, SystemTime};
 use url::Url;
 
 const DEFAULT_RPS: f64 = 0.5;
+pub const FOXEYE_USER_AGENT: &str = "Foxeye Search";
 
 #[derive(Debug, Clone)]
 pub struct Sites {
@@ -14,6 +15,12 @@ pub struct Sites {
     pub rps: Option<u32>,
     pub timer: Timer,
     pub robots: RobotsTxt,
+}
+
+impl Sites {
+    pub fn is_allowed(&self, path: &str) -> bool {
+        self.robots.is_allowed(FOXEYE_USER_AGENT, path)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

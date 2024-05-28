@@ -3,9 +3,10 @@ resolver = "2"
 
 members = [
     "crawler",
-    "db",
+    "db", "parser", "utils",
 ]
 
 [workspace.dependencies]
 db = { path = "db" }
+utils = { path = "utils" }
 

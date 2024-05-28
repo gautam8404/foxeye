@@ -1,4 +1,3 @@
-mod amq;
 mod config;
 mod crawler;
 mod robots;
@@ -9,8 +8,8 @@ use tracing::info;
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    info!("yo");
+    info!("starting crawler");
 
-    let a = Crawler::new().await;
-    println!("{:#?}", a);
+    let mut crawler = Crawler::new().await.unwrap();
+    crawler.crawl_loop().await;
 }

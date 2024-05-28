@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "postgres"]}
+sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "postgres", "time"]}
 redis = "0.25.3"
 deadpool-redis = "0.15.0"
 thiserror = "1"

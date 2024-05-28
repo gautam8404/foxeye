@@ -46,7 +46,7 @@ impl Db {
     async fn cmd_set(
         conn: &mut Connection,
         key: &str,
-        val: &[u8],
+        val: Vec<u8>,
         ttl: Option<u16>,
     ) -> Result<(), DbError> {
         let mut command = cmd("SET");
@@ -61,7 +61,7 @@ impl Db {
         Ok(())
     }
 
-    async fn cmd_get(conn: &mut Connection, key: &str) -> Result<Vec<u8>, DbError> {
+    async fn cmd_get(conn: &mut Connection, key: &str) -> Result<Option<Vec<u8>>, DbError> {
         Ok(cmd("GET").arg(key).query_async(conn).await?)
     }
 
@@ -71,7 +71,16 @@ impl Db {
         Ok(())
     }
 
-    pub async fn set_cache(&self, key: &str, val: &[u8], ttl: Option<u16>) -> Result<(), DbError> {
+    async fn cmd_exist(conn: &mut Connection, key: &str) -> Result<bool, DbError> {
+        Ok(cmd("EXISTS").arg(key).query_async(conn).await?)
+    }
+
+    pub async fn set_cache(
+        &self,
+        key: &str,
+        val: Vec<u8>,
+        ttl: Option<u16>,
+    ) -> Result<(), DbError> {
         let mut conn = self.redis.get().await.map_err(|e| {
             error!("Db.set_cache: failed to get redis connection {e:?}");
             DbError::Other(format!("failed to get redis connection {e:?}"))
@@ -82,7 +91,7 @@ impl Db {
         Ok(())
     }
 
-    pub async fn get_cache(&self, key: &str) -> Result<Vec<u8>, DbError> {
+    pub async fn get_cache(&self, key: &str) -> Result<Option<Vec<u8>>, DbError> {
         let mut conn = self.redis.get().await.map_err(|e| {
             error!("Db.set_cache: failed to get redis connection {e:?}");
             DbError::Other(format!("failed to get redis connection {e:?}"))
@@ -98,6 +107,15 @@ impl Db {
         })?;
 
         Self::cmd_del(&mut conn, key).await
+    }
+
+    pub async fn exists(&self, key: &str) -> Result<bool, DbError> {
+        let mut conn = self.redis.get().await.map_err(|e| {
+            error!("Db.set_cache: failed to get redis connection {e:?}");
+            DbError::Other(format!("failed to get redis connection {e:?}"))
+        })?;
+
+        Self::cmd_exist(&mut conn, key).await
     }
 }
 
@@ -115,17 +133,22 @@ mod tests {
         // Test set_cache
         let key = "test_key";
         let value = b"test_value";
-        db.set_cache(key, value, None)
+        db.set_cache(key, value.to_vec(), None)
             .await
             .expect("Failed to set cache");
 
+        // Test key_exists
+
+        assert!(db.exists(key).await.expect("Failed to check key exists"));
+
         // Test get_cache
         let retrieved_value = db.get_cache(key).await.expect("Failed to get cache");
-        assert_eq!(retrieved_value, value);
+        assert!(retrieved_value.is_some());
+        assert_eq!(retrieved_value.unwrap(), value);
 
         // Test del_cache
         db.del_cache(key).await.expect("Failed to delete cache");
         let result = db.get_cache(key).await.expect("failed to get cache");
-        assert!(result.is_empty()); // Key should not exist anymore
+        assert!(result.is_none()); // Key should not exist anymore
     }
 }
