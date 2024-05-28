@@ -1,0 +1,12 @@
+[package]
+name = "utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.86"
+amqprs = { version = "1.6.1", features = ["tracing", "urispec", "traces"] }
+serde = "1.0.203"
+url = "2.5.0"
+async-trait = "0.1.80"
+tracing = "0.1.40"

@@ -16,3 +16,4 @@ Cargo.lock
 
 *.env
 pgdata/
+redis_data/
