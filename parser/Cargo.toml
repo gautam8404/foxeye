@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 utils = { workspace = true }
 anyhow = "1.0.86"
-tokio = "1.37.0"
+tokio = { version = "1.37.0" , features =["full"]}
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"

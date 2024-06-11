@@ -1,20 +1,23 @@
+use std::fmt::{Debug, Formatter};
+
 use amqprs::callbacks::{DefaultChannelCallback, DefaultConnectionCallback};
 use amqprs::channel::{
     BasicAckArguments, BasicConsumeArguments, BasicPublishArguments, Channel,
     ExchangeDeclareArguments, QueueBindArguments, QueueDeclareArguments,
 };
 use amqprs::connection::{Connection, OpenConnectionArguments};
-use amqprs::consumer::{AsyncConsumer, DefaultConsumer};
+use amqprs::consumer::AsyncConsumer;
 use amqprs::{BasicProperties, Deliver};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::fmt::{Debug, Formatter};
-use tracing::info;
+use tokio::sync::mpsc::UnboundedSender;
+use tracing::{error, info};
 
 #[derive(Clone)]
 pub struct RabbitMQ {
-    channel: Channel,
-    connection: Connection,
+    pub channel: Channel,
+    #[allow(dead_code)]
+    pub connection: Connection,
     queue: String,
     routing_key: String,
     exchange_name: String,
@@ -91,14 +94,19 @@ impl RabbitMQ {
         Ok(())
     }
 
-    pub async fn consume(&self, consumer_tag: &str, auto_ack: bool) -> Result<String> {
+    pub async fn consume(
+        &self,
+        consumer_tag: &str,
+        auto_ack: bool,
+        sender: UnboundedSender<String>,
+    ) -> Result<String> {
         let args = BasicConsumeArguments::new(&self.queue, consumer_tag)
             .auto_ack(auto_ack)
             .finish();
 
         let res = self
             .channel
-            .basic_consume(Consumer::new(args.no_ack), args)
+            .basic_consume(Consumer::new(args.no_ack, sender), args)
             .await?;
 
         println!("{}", res);
@@ -109,11 +117,12 @@ impl RabbitMQ {
 
 struct Consumer {
     no_ack: bool,
+    sender: UnboundedSender<String>,
 }
 
 impl Consumer {
-    pub fn new(no_ack: bool) -> Consumer {
-        Consumer { no_ack }
+    pub fn new(no_ack: bool, sender: UnboundedSender<String>) -> Consumer {
+        Consumer { no_ack, sender }
     }
 }
 
@@ -140,6 +149,9 @@ impl AsyncConsumer for Consumer {
             channel.basic_ack(args).await.unwrap();
         }
 
-        println!("{:?}", String::from_utf8(content));
+        let id = String::from_utf8(content).unwrap();
+        if let Err(e) = self.sender.send(id) {
+            error!("amq consumer: error when sending queue data through mpsc {e}");
+        }
     }
 }

@@ -79,7 +79,8 @@ impl Crawler {
         }
 
         let num_urls = Self::MAX_QUEUE_SIZE - self.url_queue.len();
-        let stmt = format!(r#"
+        let stmt = format!(
+            r#"
             DELETE FROM crawler_queue
             WHERE url_id IN (
             SELECT url_id
@@ -87,14 +88,16 @@ impl Crawler {
             ORDER BY created_at ASC
             LIMIT {} )
             RETURNING url, depth
-        "#, Self::MAX_QUEUE_SIZE);
+        "#,
+            Self::MAX_QUEUE_SIZE
+        );
 
         let mut pool = self.db.get_pg().await?;
         let urls = sqlx::query_as::<_, (String, i32)>(&stmt)
             .bind(num_urls as i8)
             .fetch_all(pool.acquire().await?)
             .await?;
-        
+
         let urls = urls.iter().filter_map(|(url, depth)| {
             if let Ok(url) = Url::parse(url) {
                 return Some(CrawlUrl {
@@ -138,9 +141,9 @@ impl Crawler {
 
                 index += 1
             }
-            
+
             self.url_queue.clear();
-            tokio::time::sleep(Duration::new(3,0)).await;
+            tokio::time::sleep(Duration::new(3, 0)).await;
         }
     }
 
@@ -176,7 +179,7 @@ impl Crawler {
         if !site.timer.can_send() {
             // add url back to queue
             self.url_queue.push(CrawlUrl::new(url.clone(), depth));
-            return Ok((false, "rate limit exceeded"))
+            return Ok((false, "rate limit exceeded"));
         }
 
         // check if url is in redis if yes skip

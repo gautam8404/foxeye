@@ -10,3 +10,4 @@ serde = "1.0.203"
 url = "2.5.0"
 async-trait = "0.1.80"
 tracing = "0.1.40"
+tokio = {version = "1.37.0", default-features = false, features = ["sync"]}

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS chunk (
     chunk_id BIGSERIAL PRIMARY KEY ,
     doc_id BIGSERIAL,
     chunk_data TEXT,
-    embedding vector(512)
+    embedding vector(1024)
 );
 
 -- page links

@@ -3,7 +3,10 @@ resolver = "2"
 
 members = [
     "crawler",
-    "db", "parser", "utils",
+    "db", 
+    "embedder", 
+    "parser", 
+    "utils",
 ]
 
 [workspace.dependencies]
