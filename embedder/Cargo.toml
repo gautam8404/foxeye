@@ -1,0 +1,17 @@
+[package]
+name = "embedder"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+hf-hub = { version = "0.3.2", features = ["tokio"]}
+tokenizers = "0.19.1"
+serde_json = "1"
+candle = { git = "https://github.com/huggingface/candle.git", version = "0.6.0", package = "candle-core",  features = ["cuda"] }
+candle-transformers = { git = "https://github.com/huggingface/candle.git", version = "0.6.0", features = ["cuda"] }
+candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.6.0", features = ["cuda"] }
+itertools = "0.13.0"
+tokio = "1.38.0"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
