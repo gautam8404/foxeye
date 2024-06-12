@@ -1,8 +1,10 @@
 pub mod amq;
 
 pub use amq::RabbitMQ;
+pub use amqprs;
+pub use async_trait;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 #[derive(Debug, Clone)]
@@ -17,15 +19,21 @@ impl CrawlUrl {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrawlMessage {
-    id: String,
-    content: String,
-    depth: u32,
+    pub id: String,
+    pub content: String,
+    pub depth: u32,
+    pub url: String,
 }
 
 impl CrawlMessage {
-    pub fn new(id: String, content: String, depth: u32) -> CrawlMessage {
-        CrawlMessage { id, content, depth }
+    pub fn new(id: String, content: String, depth: u32, url: String) -> CrawlMessage {
+        CrawlMessage {
+            id,
+            content,
+            depth,
+            url,
+        }
     }
 }

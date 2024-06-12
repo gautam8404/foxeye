@@ -55,7 +55,7 @@ impl CandleEmbedBuilder {
         self.padding = pad;
         self
     }
-    
+
     pub fn device(mut self, device: Device) -> Self {
         self.device = device;
         self
@@ -246,13 +246,18 @@ impl CandleEmbed {
         Ok(embeddings)
     }
 
-    pub fn split_embed(&mut self, text: &str, add_special: bool) -> Result<Vec<Vec<f32>>> {
+    pub fn split_embed(
+        &mut self,
+        text: &str,
+        add_special: bool,
+    ) -> Result<Vec<(Vec<f32>, (usize, usize))>> {
         if text.is_empty() {
             return Err(Error::msg("split_embed: text is empty"));
         };
 
         let encoding = self.tokenize(text, false, add_special)?;
         let token_ids = encoding.get_ids();
+        let offsets = encoding.get_offsets();
 
         let chunk_size = self.model_input_size - self.overlap;
 
@@ -261,6 +266,9 @@ impl CandleEmbed {
 
         for ids in token_ids.chunks(chunk_size) {
             cur_len += ids.len();
+            let chunk_start = cur_len - ids.len();
+            let chunk_end = cur_len;
+
             let mut overlapped: &[u32] = &[];
             if (cur_len + self.overlap) < token_ids.len() {
                 overlapped = &token_ids[cur_len..(cur_len + self.overlap)];
@@ -289,7 +297,9 @@ impl CandleEmbed {
                 embedding
             };
 
-            embeddings.push(embedding.i(0)?.to_vec1::<f32>()?);
+            let offsets = (offsets[chunk_start].0, offsets[chunk_end - 2].1);
+
+            embeddings.push((embedding.i(0)?.to_vec1::<f32>()?, offsets));
         }
 
         Ok(embeddings)

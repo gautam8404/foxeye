@@ -46,7 +46,14 @@ impl Crawler {
         }
         let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!("RABBITMQ env not set"))?;
 
-        let amq = RabbitMQ::new(&amq_uri, "foxeye.crawler", "foxeye.parser").await?;
+        let amq = RabbitMQ::new(
+            &amq_uri,
+            "foxeye.parser",
+            "consumer.parser",
+            "crawler.to.parser",
+            "crawler.parser.exchange",
+        )
+        .await?;
 
         Ok(Crawler {
             client: Client::new(),
@@ -74,7 +81,7 @@ impl Crawler {
     // send key to parser using rabbitmq
 
     async fn populate_urls(&mut self) -> Result<()> {
-        if self.url_queue.len() >= 100 {
+        if self.url_queue.len() >= Self::MAX_QUEUE_SIZE {
             return Ok(());
         }
 
@@ -85,6 +92,7 @@ impl Crawler {
             WHERE url_id IN (
             SELECT url_id
             FROM crawler_queue
+            WHERE host = $1
             ORDER BY created_at ASC
             LIMIT {} )
             RETURNING url, depth
@@ -93,23 +101,28 @@ impl Crawler {
         );
 
         let mut pool = self.db.get_pg().await?;
-        let urls = sqlx::query_as::<_, (String, i32)>(&stmt)
-            .bind(num_urls as i8)
-            .fetch_all(pool.acquire().await?)
-            .await?;
 
-        let urls = urls.iter().filter_map(|(url, depth)| {
-            if let Ok(url) = Url::parse(url) {
-                return Some(CrawlUrl {
-                    url,
-                    depth: *depth as u32,
-                });
-            }
+        let mut crawl_urls = vec![];
 
-            None
-        });
+        for host in self.site_map.keys() {
+            let urls = sqlx::query_as::<_, (String, i32)>(&stmt)
+                .bind(host.to_owned())
+                .fetch_all(pool.acquire().await?)
+                .await?;
 
-        self.url_queue.extend(urls);
+            let urls = urls.iter().filter_map(|(url, depth)| {
+                if let Ok(url) = Url::parse(url) {
+                    return Some(CrawlUrl {
+                        url,
+                        depth: *depth as u32,
+                    });
+                }
+
+                None
+            });
+            crawl_urls.extend(urls);
+        }
+        self.url_queue.extend(crawl_urls);
 
         Ok(())
     }
@@ -139,7 +152,7 @@ impl Crawler {
                     );
                 }
 
-                index += 1
+                index += 1;
             }
 
             self.url_queue.clear();
@@ -175,17 +188,18 @@ impl Crawler {
             return Ok((false, "not allowed by robots.txt"));
         }
 
-        // check if timer rate limit has passed
-        if !site.timer.can_send() {
-            // add url back to queue
-            self.url_queue.push(CrawlUrl::new(url.clone(), depth));
-            return Ok((false, "rate limit exceeded"));
-        }
-
         // check if url is in redis if yes skip
         let exists = self.db.exists(&key).await?;
         if exists {
             return Ok((false, "url exists in redis"));
+        }
+
+        // check if timer rate limit has passed
+        if !site.timer.can_send() {
+            // add url back to queue
+            self.url_queue.push(CrawlUrl::new(url.clone(), depth));
+            warn!("site timer for: {:?}", site.timer);
+            return Ok((false, "rate limit exceeded"));
         }
 
         Ok((true, "all checks passed"))
@@ -201,7 +215,7 @@ impl Crawler {
         // send request
         let res = self
             .client
-            .get(url)
+            .get(url.clone())
             .header(USER_AGENT, FOXEYE_USER_AGENT)
             .send()
             .await?;
@@ -209,13 +223,21 @@ impl Crawler {
         let res = res.text().await?;
         let id = Ulid::new().to_string();
 
-        let message = CrawlMessage::new(id.clone(), res, depth);
+        let message = CrawlMessage::new(id.clone(), res, depth, url.clone().to_string());
         let message = serde_json::to_string(&message)?;
         let mins_10 = 60 * 10;
+        let days_7 = 60 * 60 * 24 * 7;
 
+        // save document into cache
         self.db
             .set_cache(&id, message.into_bytes(), Some(mins_10))
             .await?;
+
+        // save url into cache
+        self.db
+            .set_cache(url.as_ref(), vec![], Some(days_7))
+            .await?;
+
         info!("saved crawled content in redis with id: {id}");
         self.amq.publish(id).await?;
         info!("sent id in amq");

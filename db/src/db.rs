@@ -47,7 +47,7 @@ impl Db {
         conn: &mut Connection,
         key: &str,
         val: Vec<u8>,
-        ttl: Option<u16>,
+        ttl: Option<u32>,
     ) -> Result<(), DbError> {
         let mut command = cmd("SET");
 
@@ -79,7 +79,7 @@ impl Db {
         &self,
         key: &str,
         val: Vec<u8>,
-        ttl: Option<u16>,
+        ttl: Option<u32>,
     ) -> Result<(), DbError> {
         let mut conn = self.redis.get().await.map_err(|e| {
             error!("Db.set_cache: failed to get redis connection {e:?}");

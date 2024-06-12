@@ -36,7 +36,13 @@ impl Debug for RabbitMQ {
 }
 
 impl RabbitMQ {
-    pub async fn new(uri: &str, queue: &str, consumer_tag: &str) -> Result<RabbitMQ> {
+    pub async fn new(
+        uri: &str,
+        queue: &str,
+        consumer_tag: &str,
+        routing_key: &str,
+        exchange_name: &str,
+    ) -> Result<RabbitMQ> {
         let args: OpenConnectionArguments = uri.try_into().unwrap();
         let connection = Connection::open(&args).await?;
 
@@ -58,8 +64,8 @@ impl RabbitMQ {
             }
         };
 
-        let routing_key = "foxeye.routing".to_string();
-        let exchange_name = "foxeye.topic".to_string();
+        let routing_key = routing_key.to_string();
+        let exchange_name = exchange_name.to_string();
 
         channel
             .exchange_declare(ExchangeDeclareArguments::new(&exchange_name, "direct"))
@@ -94,7 +100,7 @@ impl RabbitMQ {
         Ok(())
     }
 
-    pub async fn consume(
+    pub async fn basic_consume(
         &self,
         consumer_tag: &str,
         auto_ack: bool,
@@ -109,7 +115,23 @@ impl RabbitMQ {
             .basic_consume(Consumer::new(args.no_ack, sender), args)
             .await?;
 
-        println!("{}", res);
+        Ok(res)
+    }
+
+    pub async fn consume<C>(
+        &self,
+        consumer_tag: &str,
+        auto_ack: bool,
+        consumer: C,
+    ) -> Result<String>
+    where
+        C: AsyncConsumer + Send + 'static,
+    {
+        let args = BasicConsumeArguments::new(&self.queue, consumer_tag)
+            .auto_ack(auto_ack)
+            .finish();
+
+        let res = self.channel.basic_consume(consumer, args).await?;
 
         Ok(res)
     }
@@ -135,13 +157,6 @@ impl AsyncConsumer for Consumer {
         _basic_properties: BasicProperties,
         content: Vec<u8>,
     ) {
-        info!(
-            "consume delivery {} on channel {}, content size: {}",
-            deliver,
-            channel,
-            content.len()
-        );
-
         // ack explicitly if manual ack
         if !self.no_ack {
             info!("ack to delivery {} on channel {}", deliver, channel);

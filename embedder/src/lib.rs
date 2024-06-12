@@ -1,3 +1,6 @@
-pub mod embed;
-
-pub use embed::{embedder::{CandleEmbedBuilder,CandleEmbed}, models};
+// pub mod embed;
+//
+// pub use embed::{
+//     candle_embed::{CandleEmbed, CandleEmbedBuilder},
+//     models,
+// };

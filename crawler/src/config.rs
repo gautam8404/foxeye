@@ -32,7 +32,7 @@ pub struct SitesConfig {
 
 impl SitesConfig {
     pub async fn load_config() -> Result<Vec<Sites>> {
-        let sites = read_to_string("crawler/sites.json")?;
+        let sites = read_to_string("sites.json")?;
         let val = serde_json::from_str::<serde_json::Value>(&sites)?;
         let val = val
             .get("sites")

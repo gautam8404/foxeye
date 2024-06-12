@@ -1,19 +1,19 @@
 {
   "sites": [
     {
-    "url": "https://www.wikipedia.org/",
+    "url": "https://en.wikipedia.org/wiki/Wikipedia:Popular_pages",
     "depth": 2,
-    "rps": 2
+    "rps": 1
     },
     {
       "url": "https://aur.archlinux.org/packages",
-      "depth": 1,
+      "depth": 2,
       "rps": 5
     },
     {
       "url": "https://www.w3schools.com/",
       "depth": 2,
-      "rps": 5
+      "rps": 3
     }
   ]
 }

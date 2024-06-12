@@ -12,6 +12,10 @@ candle = { git = "https://github.com/huggingface/candle.git", version = "0.6.0",
 candle-transformers = { git = "https://github.com/huggingface/candle.git", version = "0.6.0", features = ["cuda"] }
 candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.6.0", features = ["cuda"] }
 itertools = "0.13.0"
-tokio = "1.38.0"
+tokio = { version = "1.38.0", features = ["full"]}
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
+db = { workspace = true }
+utils = { workspace = true }
+sqlx = {version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "postgres"]}
+ulid = "1.1.2"
