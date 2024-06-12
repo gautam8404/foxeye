@@ -5,6 +5,7 @@ use scraper::{Html, Selector};
 use sqlx::Acquire;
 use tokio::signal;
 use tokio::sync::mpsc;
+use tokio::time::Instant;
 use tracing::{error, info};
 use ulid::Ulid;
 use url::Url;
@@ -20,7 +21,7 @@ pub struct Parser {
     db: Db,
     amq: RabbitMQ,
     config: SiteConfig,
-    no_ack: bool
+    pub auto_ack: bool,
 }
 
 impl Parser {
@@ -30,7 +31,7 @@ impl Parser {
         let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!("RABBITMQ env not set"))?;
         let amq = RabbitMQ::new(
             &amq_uri,
-            "foxeye.parser",
+            "foxeye.embedder",
             "consumer.embedder",
             "parser.to.embedder",
             "parser.embedder.exchange",
@@ -38,15 +39,16 @@ impl Parser {
         .await?;
         let config = SiteConfig::load_config()?;
 
-        Ok(Self { db, amq, config , no_ack: true})
+        Ok(Self {
+            db,
+            amq,
+            config,
+            auto_ack: true,
+        })
     }
 
-    async fn get_document(&self, id: &str) -> Result<Option<String>> {
-        let doc = self
-            .db
-            .get_cache(id)
-            .await?
-            .map(|v| String::from_utf8(v).unwrap());
+    async fn get_document(&self, id: &str) -> Result<Option<Vec<u8>>> {
+        let doc = self.db.get_cache(id).await?;
 
         Ok(doc)
     }
@@ -127,7 +129,7 @@ impl Parser {
             })
             .unzip();
 
-        let depths = (0..urls.len()).map(|_| depth + 1).collect::<Vec<_>>();
+        let depths = vec![depth + 1; urls.len()];
 
         let mut pool = self.db.get_pg().await?;
 
@@ -163,7 +165,9 @@ impl Parser {
             r#"
             INSERT INTO document (doc_id, url, content)
             VALUES ($1, $2, $3)
-            RETURNING doc_id
+            ON CONFLICT (url)
+            DO UPDATE SET content=$2
+            RETURNING doc_id 
             "#,
             id,
             url,
@@ -186,39 +190,16 @@ impl Parser {
             return Err(Error::msg(format!("parse: document not found for id {id}")));
         }
 
-        let crawl_message = serde_json::from_str::<CrawlMessage>(&doc.unwrap())?;
+        let crawl_message = serde_json::from_slice::<CrawlMessage>(&doc.unwrap())?;
         let host = Url::parse(&crawl_message.url)?;
 
         let (urls, doc) = self.parse_document(crawl_message.content, host.clone())?;
 
         let id = self.save_document(doc, host).await?;
         self.save_urls(urls, crawl_message.depth as i32).await?;
-        info!("sending {id} to embeddor");
+        info!("sending {id} to embedder");
         self.amq.publish(id).await?;
         Ok(())
-    }
-
-    pub async fn parser_loop(&self) {
-        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
-
-        self.amq
-            .basic_consume(&self.amq.consumer_tag, true, tx)
-            .await
-            .expect("failed to init queue");
-
-        loop {
-            tokio::select! {
-                msg = rx.recv() => {
-                    if let Some(msg) = msg {
-                        info!("message received from queue: {}", msg);
-                        if let Err(e) = self.parse(&msg).await {
-                            error!("parser_loop::parse: error while parsing id: {msg} {e}");
-                        }
-                    }
-                }
-                _ = shutdown_signal() => break,
-            }
-        }
     }
 }
 
@@ -232,37 +213,19 @@ impl AsyncConsumer for Parser {
         content: Vec<u8>,
     ) {
         // ack explicitly if manual ack
-        if !self.no_ack {
+        if !self.auto_ack {
             info!("ack to delivery {} on channel {}", deliver, channel);
             let args = BasicAckArguments::new(deliver.delivery_tag(), false);
             channel.basic_ack(args).await.unwrap();
         }
 
         let id = String::from_utf8(content).unwrap();
-        
+        info!("received id from crawler, parsing now {id}");
+        let now = Instant::now();
         if let Err(e) = self.parse(&id).await {
             error!("amq consumer::parser error while parsing id {id}: {e}");
+        } else {
+            info!("parsed {id} in {}", now.elapsed().as_secs_f32());
         }
-    }
-}
-
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
-    };
-
-    #[cfg(unix)]
-    let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
     }
 }

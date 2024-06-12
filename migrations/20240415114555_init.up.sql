@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS crawler_queue (
 
 CREATE TABLE IF NOT EXISTS document (
     doc_id VARCHAR(128) PRIMARY KEY ,
-    url TEXT NOT NULL,
+    url TEXT NOT NULL UNIQUE ,
     content TEXT,
     created_at TIMESTAMP DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()

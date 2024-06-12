@@ -122,7 +122,12 @@ impl Crawler {
             });
             crawl_urls.extend(urls);
         }
-        self.url_queue.extend(crawl_urls);
+        if !crawl_urls.is_empty() {
+            info!("populated queue with {} urls", crawl_urls.len());
+            self.url_queue.extend(crawl_urls);
+        } else {
+            warn!("no urls found in database");
+        }
 
         Ok(())
     }
@@ -239,6 +244,7 @@ impl Crawler {
             .await?;
 
         info!("saved crawled content in redis with id: {id}");
+        tokio::time::sleep(Duration::from_millis(500)).await; // let redis save id
         self.amq.publish(id).await?;
         info!("sent id in amq");
 
