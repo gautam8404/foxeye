@@ -1,6 +1,6 @@
 use crate::embed::models::Model;
 use anyhow::{anyhow, Error, Result};
-use candle::{CudaDevice, Device, IndexOp, Tensor};
+use candle::{Device, IndexOp, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config, HiddenAct, DTYPE};
 use hf_hub::{api::tokio::Api, Repo, RepoType};

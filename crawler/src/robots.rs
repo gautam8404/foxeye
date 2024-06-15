@@ -1,7 +1,7 @@
 use anyhow::Result;
 use reqwest::{get, StatusCode};
 use std::collections::HashMap;
-use tracing::{error, info};
+use tracing::info;
 use url::Url;
 
 #[derive(Debug, Clone, Default)]

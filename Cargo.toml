@@ -5,11 +5,12 @@ members = [
     "crawler",
     "db", 
     "embedder", 
-    "parser", 
+    "parser", "search", 
     "utils",
 ]
 
 [workspace.dependencies]
 db = { path = "db" }
 utils = { path = "utils" }
+embedder = { path = "embedder" }
 

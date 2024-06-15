@@ -26,7 +26,7 @@ pub struct Crawler {
 
 impl Crawler {
     const MAX_QUEUE_SIZE: usize = 100;
-    const MAX_DEPTH: u32 = 10;
+    const _MAX_DEPTH: u32 = 10;
     pub async fn new() -> Result<Crawler> {
         let config = SitesConfig::load_config().await?;
         info!("sites loaded: {}", config.len());
@@ -44,7 +44,7 @@ impl Crawler {
                 site_map.insert(host.to_string(), site);
             }
         }
-        let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!("RABBITMQ env not set"))?;
+        let amq_uri = env::var("RABBITMQ").map_err(|_| anyhow!("RABBITMQ env not set"))?;
 
         let amq = RabbitMQ::new(
             &amq_uri,
@@ -85,7 +85,6 @@ impl Crawler {
             return Ok(());
         }
 
-        let num_urls = Self::MAX_QUEUE_SIZE - self.url_queue.len();
         let stmt = format!(
             r#"
             DELETE FROM crawler_queue

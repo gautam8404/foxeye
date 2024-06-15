@@ -1,6 +1,7 @@
 use std::env;
 
 use anyhow::{anyhow, Error, Result};
+use regex::Regex;
 use scraper::{Html, Selector};
 use sqlx::Acquire;
 use tokio::signal;
@@ -113,7 +114,11 @@ impl Parser {
             return Err(Error::msg("parse_document: body not found"));
         }
 
-        Ok((urls, format!("{title} {body}")))
+        let text = format!("{title} {body}");
+        let reg = Regex::new(r"\[.*?]|[^\x00-\x7F]+| {4}|[\t\n\r]")?;
+        let text = reg.replace_all(&text, "").to_string();
+
+        Ok((urls, text))
     }
 
     async fn save_urls(&self, urls: Vec<Url>, depth: i32) -> Result<()> {
