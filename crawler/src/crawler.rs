@@ -243,7 +243,7 @@ impl Crawler {
             .await?;
 
         info!("saved crawled content in redis with id: {id}");
-        tokio::time::sleep(Duration::from_millis(500)).await; // let redis save id
+        // tokio::time::sleep(Duration::from_millis(200)).await; // let redis save id
         self.amq.publish(id).await?;
         info!("sent id in amq");
 

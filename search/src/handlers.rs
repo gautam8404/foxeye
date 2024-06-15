@@ -8,15 +8,6 @@ use tokio::sync::Mutex;
 use tracing::error;
 use tracing::log::info;
 
-async fn init_searcher() -> Searcher {
-    let search = Searcher::new()
-        .await
-        .map_err(|e| format!("failed to init searcher: {e}"))
-        .unwrap();
-
-    search
-}
-
 pub async fn web_root() -> &'static str {
     "Hello, World! from embedder"
 }

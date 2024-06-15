@@ -12,6 +12,7 @@ pub const FOXEYE_USER_AGENT: &str = "Foxeye Search";
 pub struct Sites {
     pub url: Url,
     pub depth: Option<u32>,
+    #[allow(dead_code)]
     pub rps: Option<u32>,
     pub timer: Timer,
     pub robots: RobotsTxt,

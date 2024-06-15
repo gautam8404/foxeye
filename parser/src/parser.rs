@@ -4,8 +4,6 @@ use anyhow::{anyhow, Error, Result};
 use regex::Regex;
 use scraper::{Html, Selector};
 use sqlx::Acquire;
-use tokio::signal;
-use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tracing::{error, info};
 use ulid::Ulid;
@@ -16,7 +14,7 @@ use db::Db;
 use utils::amqprs::channel::{BasicAckArguments, Channel};
 use utils::amqprs::{BasicProperties, Deliver};
 use utils::async_trait::async_trait;
-use utils::{amqprs::consumer::AsyncConsumer, async_trait, CrawlMessage, RabbitMQ};
+use utils::{amqprs::consumer::AsyncConsumer, CrawlMessage, RabbitMQ};
 
 pub struct Parser {
     db: Db,
@@ -29,7 +27,7 @@ impl Parser {
     pub async fn new() -> Result<Self> {
         let db = Db::new(5).await?;
 
-        let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!("RABBITMQ env not set"))?;
+        let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!(format!("RABBITMQ env not set {e}")))?;
         let amq = RabbitMQ::new(
             &amq_uri,
             "foxeye.embedder",
@@ -98,7 +96,7 @@ impl Parser {
         let mut urls = vec![];
 
         for url in url_hrefs {
-            if url.starts_with("/") {
+            if !url.starts_with("http") || url.starts_with("/"){
                 if let Ok(u) = host.join(&url) {
                     urls.push(u);
                     continue;
@@ -126,7 +124,7 @@ impl Parser {
             .iter()
             .filter_map(|u| {
                 if let Some(host) = u.host() {
-                    if self.config.is_allowed(host.to_string()) {
+                    if self.config.is_allowed(host.to_string(), (depth + 1) as u32) {
                         return Some((u.to_string(), host.to_string()));
                     }
                 }
@@ -186,6 +184,37 @@ impl Parser {
         Ok(rec.doc_id)
     }
 
+    // sometimes some ids are not send to embedder because of closing embedder queue, this function resends them
+    pub async fn send_missing_ids(&self) -> Result<()> {
+        info!("send_missing_ids: sending missing ids to embedder");
+        let mut pool = self.db.get_pg().await?;
+        let records = sqlx::query!(
+            r#"
+                SELECT d.doc_id
+                FROM document AS d
+                WHERE d.doc_id NOT IN (SELECT doc_id FROM chunk)
+                GROUP BY d.doc_id;
+            "#
+        ).fetch_all(pool.acquire().await?).await?;
+        
+        if records.is_empty() {
+            info!("send_missing_ids: no missing ids to send");
+            return Ok(());
+        }
+        
+        let rec_len = records.len();
+
+        for rec in records {
+           let id = rec.doc_id;
+            info!("sending {id} to embedder");
+            self.amq.publish(id).await?;
+        }
+        
+        info!("send_missing_ids: sent {rec_len} missing ids to embedder");
+        
+        Ok(())
+    }
+
     pub async fn parse(&self, id: &str) -> Result<()> {
         if id.is_empty() {
             return Err(Error::msg("parse: redis id is empty"));
@@ -198,6 +227,7 @@ impl Parser {
 
         let crawl_message = serde_json::from_slice::<CrawlMessage>(&doc.unwrap())?;
         let host = Url::parse(&crawl_message.url)?;
+        info!("parsing url {host}");
 
         let (urls, title, doc) = self.parse_document(crawl_message.content, host.clone())?;
 

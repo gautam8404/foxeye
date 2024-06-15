@@ -11,7 +11,7 @@ mod embedder;
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
-    let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!("RABBITMQ env not set"))?;
+    let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!(format!("RABBITMQ env not set {e}")))?;
 
     let amq = RabbitMQ::new(
         &amq_uri,

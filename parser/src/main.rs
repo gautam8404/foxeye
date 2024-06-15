@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     println!("Hello, world!");
 
-    let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!("RABBITMQ env not set"))?;
+    let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!(format!("RABBITMQ env not set {e}")))?;
 
     let amq = RabbitMQ::new(
         &amq_uri,
@@ -25,6 +25,7 @@ async fn main() -> Result<()> {
     .await?;
 
     let parser = Parser::new().await.unwrap();
+    parser.send_missing_ids().await?; // call once jic
     let guard = Notify::new();
 
     amq.consume(&amq.consumer_tag, parser.auto_ack, parser)

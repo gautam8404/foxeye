@@ -31,6 +31,8 @@ impl CandleEmbedBuilder {
             overlap: 52,
         }
     }
+
+    #[allow(dead_code)]
     pub fn approximate_gelu(mut self, val: bool) -> Self {
         self.approximate_gelu = val;
         self
@@ -46,6 +48,7 @@ impl CandleEmbedBuilder {
         self
     }
 
+    #[allow(dead_code)]
     pub fn normalize(mut self, norm: bool) -> Self {
         self.normalize = norm;
         self
@@ -127,6 +130,7 @@ impl CandleEmbedBuilder {
     }
 }
 
+#[allow(dead_code)]
 pub struct CandleEmbed {
     config: Config,
     mean_pooling: bool,
@@ -140,6 +144,7 @@ pub struct CandleEmbed {
     overlap: usize,
 }
 
+#[allow(dead_code)]
 impl CandleEmbed {
     pub fn token_count(&mut self, text: &str, add_special: bool) -> Result<usize> {
         let encoding = self.tokenize(text, false, add_special)?;
@@ -175,11 +180,12 @@ impl CandleEmbed {
         Ok(tokenizer.encode(text, add_special).map_err(Error::msg)?)
     }
 
+    #[allow(dead_code)]
     pub fn split_tokenize(
         &mut self,
-        text: String,
-        truncate: bool,
-        add_special: bool,
+        _text: String,
+        _truncate: bool,
+        _add_special: bool,
     ) -> Result<Vec<Encoding>> {
         todo!()
     }

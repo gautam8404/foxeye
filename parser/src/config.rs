@@ -13,7 +13,7 @@ struct Site {
 
 #[derive(Debug)]
 pub struct SiteConfig {
-    map: HashMap<String, Url>,
+    map: HashMap<String, Site>,
 }
 
 impl SiteConfig {
@@ -30,13 +30,18 @@ impl SiteConfig {
         for site in val {
             let url = Url::parse(&site.url)?;
             let host = url.host().unwrap().clone().to_string();
-            map.insert(host, url);
+            map.insert(host, site);
         }
 
         Ok(SiteConfig { map })
     }
 
-    pub fn is_allowed(&self, host: String) -> bool {
-        self.map.contains_key(&host)
+    pub fn is_allowed(&self, host: String, current_depth: u32) -> bool {
+        if let Some(site) = self.map.get(&host) {
+            if current_depth <= site.depth {
+                return true
+            }
+        }
+        false
     }
 }

@@ -15,7 +15,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex as AsyncMutex;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::cors::CorsLayer;
-use tower_http::trace::{OnRequest, TraceLayer};
+use tower_http::trace::{TraceLayer};
 use tracing::{error, info, info_span, Span};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;

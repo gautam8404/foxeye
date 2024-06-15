@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::{Display, Formatter};
 
 pub const UAE_LARGE_V1: &str = "WhereIsAI/UAE-Large-V1";
 pub const BGE_LARGE_V1_5: &str = "BAAI/bge-large-en-v1.5";
@@ -7,6 +7,7 @@ pub const BGE_LARGE_V1_5: &str = "BAAI/bge-large-en-v1.5";
 pub enum Model {
     #[default]
     UaeLargeV1,
+    #[allow(dead_code)]
     BgeLargeV15,
 }
 

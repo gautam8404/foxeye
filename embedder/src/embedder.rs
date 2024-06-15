@@ -1,6 +1,4 @@
-use std::env;
-
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result};
 use candle::Device;
 use itertools::Itertools;
 use pgvector::Vector;
@@ -13,7 +11,7 @@ use db::Db;
 use utils::amqprs::channel::{BasicAckArguments, Channel};
 use utils::amqprs::{BasicProperties, Deliver};
 use utils::async_trait::async_trait;
-use utils::{amqprs::consumer::AsyncConsumer, RabbitMQ};
+use utils::{amqprs::consumer::AsyncConsumer};
 
 use crate::embed::candle_embed::{CandleEmbed, CandleEmbedBuilder};
 use crate::embed::models::Model;
