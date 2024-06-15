@@ -1,2 +1,2 @@
-export PATH="/home/gautam/cuda/bin:$PATH"
+export PATH="/home/$USER/cuda/bin:$PATH"
 
