@@ -52,7 +52,8 @@ impl Searcher {
                     chunk_end,
                     1 - (embedding <=> $1) AS cosine_similarity,
                     d.url,
-                    d.content
+                    d.content,
+                    d.title
                 FROM
                     chunk
                 JOIN
@@ -77,7 +78,7 @@ impl Searcher {
         let reg = Regex::new(r"\[.*?]|[^\x00-\x7F]+| {4}|[\t\n\r]")?;
         let text = reg.replace_all(&text, "").to_string();
 
-       Ok(text)
+        Ok(text)
     }
 
     pub async fn search(&mut self, input: SearchInput) -> Result<Vec<SearchResult>> {
@@ -91,6 +92,7 @@ impl Searcher {
         for chunk in chunks {
             if chunk.url.is_some() {
                 let chunk_id = chunk.chunk_id.unwrap();
+                let title = chunk.title.unwrap_or("".to_string());
                 let content = chunk.content.unwrap_or("".to_string());
                 let url = chunk.url.unwrap();
                 let score = chunk.cosine_similarity.unwrap();
@@ -99,27 +101,34 @@ impl Searcher {
                 if chunk_start > chunk_end {
                     chunk_end = content.len() - chunk_start;
                 }
+                
+                let content = content.chars().collect::<Vec<_>>();
 
-                if chunk_start > chunk_end {
+                if chunk_start > chunk_end || chunk_end > content.len() || chunk_start > content.len() {
                     res.push(SearchResult {
                         url: url.clone(),
                         score,
                         summary: "".to_string(),
-                    })
+                        title,
+                    });
+                    continue;
                 }
 
-                let content = content.chars().collect::<Vec<_>>();
                 let summary = &content[chunk_start..chunk_end];
                 let summary = summary.iter().collect::<String>();
-                let summary = self.summarise(&summary).map_err(|e| {
-                    error!("failed to summarise chunk {chunk_id}: {e}");
-                    e
-                }).unwrap_or(summary);
+                let summary = self
+                    .summarise(&summary)
+                    .map_err(|e| {
+                        error!("failed to summarise chunk {chunk_id}: {e}");
+                        e
+                    })
+                    .unwrap_or(summary);
 
                 res.push(SearchResult {
                     url,
                     score,
                     summary,
+                    title,
                 })
             }
         }
@@ -128,16 +137,6 @@ impl Searcher {
     }
 }
 
-fn cosine_similarity(vec1: &Vec<f32>, vec2: &Vec<f32>) -> f32 {
-    let dot_product = vec1
-        .iter()
-        .zip(vec2.iter())
-        .map(|(a, b)| a * b)
-        .sum::<f32>();
-    let magnitude1 = vec1.iter().map(|v| v * v).sum::<f32>().sqrt();
-    let magnitude2 = vec2.iter().map(|v| v * v).sum::<f32>().sqrt();
-    dot_product / (magnitude1 * magnitude2)
-}
 
 #[derive(Debug, FromRow)]
 pub struct Chunk {
@@ -147,13 +146,14 @@ pub struct Chunk {
     pub cosine_similarity: Option<f64>,
     pub url: Option<String>,
     pub content: Option<String>,
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchInput {
-    query: String,
-    limit: u32,
-    offset: u32,
+    pub query: String,
+    pub limit: u32,
+    pub offset: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,6 +161,7 @@ pub struct SearchResult {
     pub url: String,
     pub score: f64,
     pub summary: String,
+    pub title: String,
 }
 
 /*

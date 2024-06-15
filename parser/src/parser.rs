@@ -54,7 +54,7 @@ impl Parser {
         Ok(doc)
     }
 
-    fn parse_document(&self, doc: String, host: Url) -> Result<(Vec<Url>, String)> {
+    fn parse_document(&self, doc: String, host: Url) -> Result<(Vec<Url>, String, String)> {
         let mut document = Html::parse_document(&doc);
 
         let script_selector = Selector::parse("script").unwrap();
@@ -118,7 +118,7 @@ impl Parser {
         let reg = Regex::new(r"\[.*?]|[^\x00-\x7F]+| {4}|[\t\n\r]")?;
         let text = reg.replace_all(&text, "").to_string();
 
-        Ok((urls, text))
+        Ok((urls, title, text))
     }
 
     async fn save_urls(&self, urls: Vec<Url>, depth: i32) -> Result<()> {
@@ -161,22 +161,23 @@ impl Parser {
         Ok(())
     }
 
-    async fn save_document(&self, doc: String, url: Url) -> Result<String> {
+    async fn save_document(&self, title: String, doc: String, url: Url) -> Result<String> {
         let mut pool = self.db.get_pg().await?;
         let id = Ulid::new().to_string();
         let url = url.to_string();
 
         let rec = sqlx::query!(
             r#"
-            INSERT INTO document (doc_id, url, content)
-            VALUES ($1, $2, $3)
+            INSERT INTO document (doc_id, url, content, title)
+            VALUES ($1, $2, $3, $4)
             ON CONFLICT (url)
             DO UPDATE SET content=$2
             RETURNING doc_id 
             "#,
             id,
             url,
-            doc
+            doc, 
+            title
         )
         .fetch_one(pool.acquire().await?)
         .await?;
@@ -198,9 +199,9 @@ impl Parser {
         let crawl_message = serde_json::from_slice::<CrawlMessage>(&doc.unwrap())?;
         let host = Url::parse(&crawl_message.url)?;
 
-        let (urls, doc) = self.parse_document(crawl_message.content, host.clone())?;
+        let (urls, title, doc) = self.parse_document(crawl_message.content, host.clone())?;
 
-        let id = self.save_document(doc, host).await?;
+        let id = self.save_document(title, doc, host).await?;
         self.save_urls(urls, crawl_message.depth as i32).await?;
         info!("sending {id} to embedder");
         self.amq.publish(id).await?;
