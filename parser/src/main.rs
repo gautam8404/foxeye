@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
     .await?;
 
     let parser = Parser::new().await.unwrap();
-    parser.send_missing_ids().await?; // call once jic
+    // parser.send_missing_ids().await?; // don't call if embedder hasn't finished all embeddings
     let guard = Notify::new();
 
     amq.consume(&amq.consumer_tag, parser.auto_ack, parser)
