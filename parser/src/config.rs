@@ -36,7 +36,7 @@ impl SiteConfig {
         Ok(SiteConfig { map })
     }
 
-    pub fn is_allowed(&self, host: String, current_depth: u32) -> bool {
+    pub fn is_allowed(&self, host: String, _current_depth: u32) -> bool {
         // if let Some(site) = self.map.get(&host) {
         //     if current_depth <= site.depth {
         //         return true;

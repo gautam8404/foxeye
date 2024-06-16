@@ -8,12 +8,11 @@ use std::iter::Iterator;
 use std::string::ToString;
 use tracing::error;
 
+use crate::misc::STOPWORDS;
 use db::Db;
 use embedder::models::Model;
 use embedder::Device;
 use embedder::{CandleEmbed, CandleEmbedBuilder};
-use crate::misc::STOPWORDS;
-
 
 pub struct Searcher {
     db: Db,
@@ -30,7 +29,6 @@ impl Searcher {
             .device(Device::new_cuda(0).unwrap())
             .build()
             .await?;
-        
 
         Ok(Searcher { db, embed })
     }
@@ -97,7 +95,7 @@ impl Searcher {
         let text = reg.replace_all(&text, "").to_string().to_lowercase();
         let query = query.to_lowercase();
         let text_vec = text.split_whitespace().collect::<Vec<_>>();
-        
+
         if text_vec.len() < min_window + 1 {
             return Err(anyhow!("document too small"));
         }
@@ -115,19 +113,17 @@ impl Searcher {
                 last = i;
             }
         }
-        
+
         if keyword_location.is_empty() {
             return Err(anyhow!("failed to summarise"));
         }
 
-        keyword_location.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0).unwrap()
-        });
+        keyword_location.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
         let start = keyword_location[0].1;
         let mut end = 0;
-        
-        for (_a,b) in keyword_location {
+
+        for (_a, b) in keyword_location {
             if (b - start) > min_window {
                 end = b;
             }

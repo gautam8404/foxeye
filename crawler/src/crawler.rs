@@ -3,7 +3,8 @@ use std::env;
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use reqwest::header::USER_AGENT;
+use mime::Mime;
+use reqwest::header::{CONTENT_TYPE, USER_AGENT};
 use reqwest::Client;
 use sqlx::Acquire;
 use tracing::{error, info, warn};
@@ -216,6 +217,9 @@ impl Crawler {
             return Ok(());
         }
 
+        let mins_10 = 60 * 10;
+        let days_7 = 60 * 60 * 24 * 7;
+
         // send request
         let res = self
             .client
@@ -224,13 +228,31 @@ impl Crawler {
             .send()
             .await?;
 
+        let content_type = res.headers().get(CONTENT_TYPE);
+        
+        if content_type.is_none() {
+            warn!("crawl: no content type found for url {url}");
+            self.db
+                .set_cache(url.as_ref(), vec![], Some(days_7))
+                .await?;
+            return Ok(());
+        }
+        let content_type = content_type.unwrap().to_str()?;
+        let mime_type = content_type.parse::<Mime>()?;
+        
+        if mime_type.type_() != mime::TEXT {
+            warn!("crawl: mime type is note text for url {url}");
+            self.db
+                .set_cache(url.as_ref(), vec![], Some(days_7))
+                .await?;
+            return Ok(());
+        }
+
         let res = res.text().await?;
         let id = Ulid::new().to_string();
 
         let message = CrawlMessage::new(id.clone(), res, depth, url.clone().to_string());
         let message = serde_json::to_string(&message)?;
-        let mins_10 = 60 * 10;
-        let days_7 = 60 * 60 * 24 * 7;
 
         // save document into cache
         self.db

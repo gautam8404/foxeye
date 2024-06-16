@@ -5,7 +5,7 @@ use regex::Regex;
 use scraper::{Html, Selector};
 use sqlx::Acquire;
 use tokio::time::Instant;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use ulid::Ulid;
 use url::Url;
 
@@ -97,7 +97,11 @@ impl Parser {
         let mut urls = vec![];
 
         for url in url_hrefs {
-            if (!url.starts_with("http") || url.starts_with('/')) && !url.contains('#') {
+            if !url.starts_with("http") || url.starts_with('/') {
+                if url.starts_with('#') {
+                    warn!("url: {url} is a fragment, skipping");
+                    continue;
+                }
                 if let Ok(u) = host.join(&url) {
                     urls.push(u);
                     continue;
@@ -114,7 +118,7 @@ impl Parser {
         }
 
         let text = format!("{title} {body}");
-        let reg = Regex::new(r"\[.*?]|[^\x00-\x7F]+| {4}|[\t\n\r]")?;
+        let reg = Regex::new(r"\[.*?]|[^\x00-\x7F]+| {4}|[\t\n\r]|<[^>]*>")?;
         let text = reg.replace_all(&text, "").to_string();
 
         Ok((urls, title, text))
@@ -128,6 +132,8 @@ impl Parser {
                     if self.config.is_allowed(host.to_string(), (depth + 1) as u32) {
                         return Some((u.to_string(), host.to_string()));
                     }
+                } else { 
+                    warn!("skipping url {u}, host not found in config");
                 }
                 None
             })

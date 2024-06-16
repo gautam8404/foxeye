@@ -19,3 +19,4 @@ db = { workspace = true }
 amqprs = { version = "1.6.1", features = ["tracing", "urispec", "traces"] }
 ulid = "1.1.2"
 utils = { workspace = true }
+mime = "0.3.17"
