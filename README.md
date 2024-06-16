@@ -26,3 +26,27 @@ it uses set of rules to figure if it is ok to crawl once all rules pass it crawl
 
 once parser gets the id it parses the raw html, extract text and urls from it, it then saves url and html in database and sends id to embedder
 after getting id from embedder it gets document from database using id and splits and embed it depending on model input size
+
+
+```mermaid
+sequenceDiagram
+    participant C as Crawler
+    participant R as Redis
+    participant P as Parser
+    participant D as Database
+    participant E as Embedder
+    participant S as Server
+    participant Cl as Client
+
+    Cl->>S: sends query
+    S->>D: similarity search
+    D->>S: search results
+    S->>Cl: search results
+
+    C->>R: saves raw HTML
+    C->>P: sends Redis key
+    P->>R: gets raw HTML
+    P->>D: saves text and URLs
+    P->>E: sends document ID
+    E->>D: saves embeddings
+```
