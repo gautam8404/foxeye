@@ -1,7 +1,0 @@
-TF => Term Freq (term occ / total term)
-IDF => log_e(Total number of documents / Number of documents containing the term)
-
-Select count(*) from documents;
-shah rukh
-
-crawler  parser
