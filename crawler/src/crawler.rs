@@ -64,7 +64,7 @@ impl Crawler {
         })
     }
 
-    // crawling strat
+    // crawling strategy
     // check if self.url_queue is empty (max 100 urls are allowed at once)
     // if its empty get url from db url queue using DELETE FROM url RETURNING * LIMIT 100;
     // check if url host is in self.site_map which is a hashmap of configured site to be crawled
