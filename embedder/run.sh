@@ -9,4 +9,4 @@ export RABBITMQ=amqp://foxeye:foxeye_amq@localhost:5672
 export REDIS_URL=redis://localhost:6379/0
 export RUST_LOG=info
 
-cargo run $FLAG
+cargo run --release

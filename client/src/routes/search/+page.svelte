@@ -2,8 +2,13 @@
 	import { goto } from '$app/navigation';
 	import type { PageServerData } from '../../../.svelte-kit/types/src/routes/$types';
 	import SearchResultList from '$lib/components/SearchResultList.svelte';
+	import { onMount } from 'svelte';
 
 	export let data: PageServerData;
+
+	onMount(() => {
+		query = new URLSearchParams(location.search).get('q');
+	})
 
 	let query:string|null;
 
@@ -16,35 +21,34 @@
 </script>
 
 
-<div class="min-h-screen bg-gray-100">
+<div class="min-h-screen  ">
 	<!-- Search Navigation Bar -->
-	<div class="bg-white shadow-md">
-		<div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex items-center justify-between">
-			<h1 class="text-2xl font-bold text-blue-600">Foxeye</h1>
-			<div class="w-full max-w-xl">
+	<form on:submit|preventDefault={handleSearch} class="bg-white drop-shadow-md">
+		<div class="max-w-9xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex items-center justify-between">
+			<a href="/">
+			<h1 class="text-2xl font-bold text-gray-600 -translate-y-1 hidden md:inline"><span class="text-orange-400">Fox</span>eye</h1>
+			</a>
+			<div class="w-full max-w-2xl">
 				<input
 					type="text"
-					class="w-full px-4 py-2 border border-gray-300 rounded-full shadow-sm focus:outline-none focus:ring focus:ring-blue-200"
+					class="w-full px-4 py-1 border border-orange-300 rounded-full shadow-sm focus:outline-none focus:ring focus:ring-orange-200"
 					placeholder="Search Foxeye or type a URL"
 					bind:value={query}
 				/>
 			</div>
 			<button
-				class="ml-4 px-4 py-2 bg-blue-600 text-white rounded-full shadow hover:bg-blue-700"
+				class="ml-4 px-4 py-1 bg-orange-600 text-white rounded-full shadow hover:bg-orange-700"
 				on:click={handleSearch}
 			>
 				Search
 			</button>
 		</div>
-	</div>
+	</form>
 
 	<!-- Search Results List -->
-	<div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+	<div class="max-w-7xl pl-3">
 		{#if data}
 			<SearchResultList results={data.data} />
-<!--			<pre>-->
-<!--				{JSON.stringify(data)}-->
-<!--			</pre>-->
 		{/if}
 	</div>
 </div>

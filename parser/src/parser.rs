@@ -27,7 +27,8 @@ impl Parser {
     pub async fn new() -> Result<Self> {
         let db = Db::new(5).await?;
 
-        let amq_uri = env::var("RABBITMQ").map_err(|e| anyhow!(format!("RABBITMQ env not set {e}")))?;
+        let amq_uri =
+            env::var("RABBITMQ").map_err(|e| anyhow!(format!("RABBITMQ env not set {e}")))?;
         let amq = RabbitMQ::new(
             &amq_uri,
             "foxeye.embedder",
@@ -96,7 +97,7 @@ impl Parser {
         let mut urls = vec![];
 
         for url in url_hrefs {
-            if !url.starts_with("http") || url.starts_with("/"){
+            if (!url.starts_with("http") || url.starts_with('/')) && !url.contains('#') {
                 if let Ok(u) = host.join(&url) {
                     urls.push(u);
                     continue;
@@ -174,7 +175,7 @@ impl Parser {
             "#,
             id,
             url,
-            doc, 
+            doc,
             title
         )
         .fetch_one(pool.acquire().await?)
@@ -195,23 +196,25 @@ impl Parser {
                 WHERE d.doc_id NOT IN (SELECT doc_id FROM chunk)
                 GROUP BY d.doc_id;
             "#
-        ).fetch_all(pool.acquire().await?).await?;
-        
+        )
+        .fetch_all(pool.acquire().await?)
+        .await?;
+
         if records.is_empty() {
             info!("send_missing_ids: no missing ids to send");
             return Ok(());
         }
-        
+
         let rec_len = records.len();
 
         for rec in records {
-           let id = rec.doc_id;
+            let id = rec.doc_id;
             info!("sending {id} to embedder");
             self.amq.publish(id).await?;
         }
-        
+
         info!("send_missing_ids: sent {rec_len} missing ids to embedder");
-        
+
         Ok(())
     }
 

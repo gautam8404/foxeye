@@ -1,4 +1,5 @@
 mod handlers;
+mod misc;
 mod svc;
 
 use crate::handlers::*;
@@ -15,7 +16,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex as AsyncMutex;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::cors::CorsLayer;
-use tower_http::trace::{TraceLayer};
+use tower_http::trace::TraceLayer;
 use tracing::{error, info, info_span, Span};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -56,7 +57,12 @@ async fn main() -> Result<()> {
                     )
                 })
                 .on_request(|request: &Request<_>, _span: &Span| {
-                    info!("received request {} {} with body {:?}", request.uri(), request.method(), request.body());
+                    info!(
+                        "received request {} {} with body {:?}",
+                        request.uri(),
+                        request.method(),
+                        request.body()
+                    );
                 })
                 .on_failure(
                     |error: ServerErrorsFailureClass, latency: Duration, span: &Span| {

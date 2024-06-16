@@ -1,14 +1,19 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use pgvector::Vector;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, FromRow};
+use std::collections::HashSet;
+use std::iter::Iterator;
+use std::string::ToString;
 use tracing::error;
 
 use db::Db;
 use embedder::models::Model;
 use embedder::Device;
 use embedder::{CandleEmbed, CandleEmbedBuilder};
+use crate::misc::STOPWORDS;
+
 
 pub struct Searcher {
     db: Db,
@@ -25,6 +30,7 @@ impl Searcher {
             .device(Device::new_cuda(0).unwrap())
             .build()
             .await?;
+        
 
         Ok(Searcher { db, embed })
     }
@@ -46,20 +52,34 @@ impl Searcher {
         let res = sqlx::query_as!(
             Chunk,
             r#"
+                WITH ranked_chunks AS (
+                    SELECT
+                        chunk_id,
+                        chunk.doc_id,
+                        chunk_start,
+                        chunk_end,
+                        embedding,
+                        1 - (embedding <=> $1) AS cosine_similarity,
+                        ROW_NUMBER() OVER (PARTITION BY chunk.doc_id ORDER BY embedding <=> $1) AS rank
+                    FROM
+                        chunk
+                )
                 SELECT
-                    chunk_id,
-                    chunk_start,
-                    chunk_end,
-                    1 - (embedding <=> $1) AS cosine_similarity,
+                    rc.chunk_id,
+                    rc.chunk_start,
+                    rc.chunk_end,
+                    rc.cosine_similarity,
                     d.url,
                     d.content,
                     d.title
                 FROM
-                    chunk
+                    ranked_chunks rc
                 JOIN
-                    document d ON chunk.doc_id = d.doc_id
+                    document d ON rc.doc_id = d.doc_id
+                WHERE
+                    rc.rank = 1
                 ORDER BY
-                    embedding <=> $1
+                    rc.cosine_similarity DESC
                 LIMIT $2 OFFSET $3;
             "#,
             embedding as Vector,
@@ -72,19 +92,58 @@ impl Searcher {
         Ok(res)
     }
 
-    fn summarise(&mut self, text: &str) -> Result<String> {
-        // will do something more here
-
+    fn summarise(&mut self, text: &str, query: &str, min_window: usize) -> Result<String> {
         let reg = Regex::new(r"\[.*?]|[^\x00-\x7F]+| {4}|[\t\n\r]")?;
-        let text = reg.replace_all(&text, "").to_string();
+        let text = reg.replace_all(&text, "").to_string().to_lowercase();
+        let query = query.to_lowercase();
+        let text_vec = text.split_whitespace().collect::<Vec<_>>();
+        
+        if text_vec.len() < min_window + 1 {
+            return Err(anyhow!("document too small"));
+        }
 
-        Ok(text)
+        let mut keyword_location = vec![];
+        let mut last = 0;
+        for (i, word) in text_vec.iter().enumerate() {
+            if !STOPWORDS.contains(*word) && query.contains(*word) {
+                if last == 0 {
+                    keyword_location.push((0, i));
+                    last = i;
+                    continue;
+                }
+                keyword_location.push((i - last, i));
+                last = i;
+            }
+        }
+        
+        if keyword_location.is_empty() {
+            return Err(anyhow!("failed to summarise"));
+        }
+
+        keyword_location.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0).unwrap()
+        });
+
+        let start = keyword_location[0].1;
+        let mut end = 0;
+        
+        for (_a,b) in keyword_location {
+            if (b - start) > min_window {
+                end = b;
+            }
+        }
+
+        if start < end && end < text_vec.len() {
+            Ok(text_vec[start..end].join(" "))
+        } else {
+            Err(anyhow!("failed to summarise"))
+        }
     }
 
     pub async fn search(&mut self, input: SearchInput) -> Result<Vec<SearchResult>> {
         let (query, limit, offset) = (input.query, input.limit, input.offset);
 
-        let embedding = self.embed_query(query)?;
+        let embedding = self.embed_query(query.clone())?;
         let chunks = self.get_documents(embedding, limit, offset).await?;
 
         let mut res = vec![];
@@ -101,10 +160,13 @@ impl Searcher {
                 if chunk_start > chunk_end {
                     chunk_end = content.len() - chunk_start;
                 }
-                
+
                 let content = content.chars().collect::<Vec<_>>();
 
-                if chunk_start > chunk_end || chunk_end > content.len() || chunk_start > content.len() {
+                if chunk_start > chunk_end
+                    || chunk_end > content.len()
+                    || chunk_start > content.len()
+                {
                     res.push(SearchResult {
                         url: url.clone(),
                         score,
@@ -116,8 +178,9 @@ impl Searcher {
 
                 let summary = &content[chunk_start..chunk_end];
                 let summary = summary.iter().collect::<String>();
+                let q = format!("{query} {title}");
                 let summary = self
-                    .summarise(&summary)
+                    .summarise(&summary, &q, 100)
                     .map_err(|e| {
                         error!("failed to summarise chunk {chunk_id}: {e}");
                         e
@@ -136,7 +199,6 @@ impl Searcher {
         Ok(res)
     }
 }
-
 
 #[derive(Debug, FromRow)]
 pub struct Chunk {
@@ -176,8 +238,8 @@ WITH ranked_chunks AS (
         embedding,
         chunk.created_at,
         chunk.updated_at,
-        1 - (embedding <=> '[1.0, 0.5, ..., 0.2]') AS cosine_similarity,
-        ROW_NUMBER() OVER (PARTITION BY chunk.doc_id ORDER BY embedding <=> '[1.0, 0.5, ..., 0.2]') AS rank
+        1 - (embedding <=> $1) AS cosine_similarity,
+        ROW_NUMBER() OVER (PARTITION BY chunk.doc_id ORDER BY embedding <=> $1) AS rank
     FROM
         chunk
 )
@@ -200,5 +262,5 @@ WHERE
     rc.rank = 1
 ORDER BY
     rc.cosine_similarity DESC
-LIMIT 10;
+LIMIT $2 OFFSET $3;
  */

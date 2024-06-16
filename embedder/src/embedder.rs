@@ -9,9 +9,9 @@ use ulid::Ulid;
 
 use db::Db;
 use utils::amqprs::channel::{BasicAckArguments, Channel};
+use utils::amqprs::consumer::AsyncConsumer;
 use utils::amqprs::{BasicProperties, Deliver};
 use utils::async_trait::async_trait;
-use utils::{amqprs::consumer::AsyncConsumer};
 
 use crate::embed::candle_embed::{CandleEmbed, CandleEmbedBuilder};
 use crate::embed::models::Model;
