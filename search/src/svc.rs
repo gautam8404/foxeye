@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, FromRow};
 use std::iter::Iterator;
 use std::string::ToString;
-use tracing::error;
+use tracing::{warn};
 
 use crate::misc::STOPWORDS;
 use db::Db;
@@ -177,7 +177,7 @@ impl Searcher {
                 let summary = self
                     .summarise(&summary, &q, 100)
                     .map_err(|e| {
-                        error!("failed to summarise chunk {chunk_id}: {e}");
+                        warn!("failed to summarise chunk {chunk_id}: {e}");
                         e
                     })
                     .unwrap_or(summary);
