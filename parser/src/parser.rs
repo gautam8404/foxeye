@@ -192,6 +192,7 @@ impl Parser {
     }
 
     // sometimes some ids are not send to embedder because of closing embedder queue, this function resends them
+    #[allow(dead_code)]
     pub async fn send_missing_ids(&self) -> Result<()> {
         info!("send_missing_ids: sending missing ids to embedder");
         let mut pool = self.db.get_pg().await?;

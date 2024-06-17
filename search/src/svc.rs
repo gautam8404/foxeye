@@ -3,7 +3,6 @@ use pgvector::Vector;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, FromRow};
-use std::collections::HashSet;
 use std::iter::Iterator;
 use std::string::ToString;
 use tracing::error;
@@ -57,7 +56,7 @@ impl Searcher {
                         chunk_start,
                         chunk_end,
                         embedding,
-                        1 - (embedding <=> $1) AS cosine_similarity,
+                        1 - (embedding <=> $1) AS similarity,
                         ROW_NUMBER() OVER (PARTITION BY chunk.doc_id ORDER BY embedding <=> $1) AS rank
                     FROM
                         chunk
@@ -66,7 +65,7 @@ impl Searcher {
                     rc.chunk_id,
                     rc.chunk_start,
                     rc.chunk_end,
-                    rc.cosine_similarity,
+                    rc.similarity,
                     d.url,
                     d.content,
                     d.title
@@ -77,7 +76,7 @@ impl Searcher {
                 WHERE
                     rc.rank = 1
                 ORDER BY
-                    rc.cosine_similarity DESC
+                    rc.similarity DESC
                 LIMIT $2 OFFSET $3;
             "#,
             embedding as Vector,
@@ -92,7 +91,7 @@ impl Searcher {
 
     fn summarise(&mut self, text: &str, query: &str, min_window: usize) -> Result<String> {
         let reg = Regex::new(r"\[.*?]|[^\x00-\x7F]+| {4}|[\t\n\r]")?;
-        let text = reg.replace_all(&text, "").to_string().to_lowercase();
+        let text = reg.replace_all(text, "").to_string().to_lowercase();
         let query = query.to_lowercase();
         let text_vec = text.split_whitespace().collect::<Vec<_>>();
 
@@ -150,7 +149,7 @@ impl Searcher {
                 let title = chunk.title.unwrap_or("".to_string());
                 let content = chunk.content.unwrap_or("".to_string());
                 let url = chunk.url.unwrap();
-                let score = chunk.cosine_similarity.unwrap();
+                let score = chunk.similarity.unwrap();
                 let chunk_start = chunk.chunk_start.unwrap_or(0) as usize;
                 let mut chunk_end = chunk.chunk_end.unwrap_or((content.len() / 4) as i64) as usize;
                 if chunk_start > chunk_end {
@@ -201,7 +200,7 @@ pub struct Chunk {
     pub chunk_id: Option<String>,
     pub chunk_start: Option<i64>,
     pub chunk_end: Option<i64>,
-    pub cosine_similarity: Option<f64>,
+    pub similarity: Option<f64>,
     pub url: Option<String>,
     pub content: Option<String>,
     pub title: Option<String>,

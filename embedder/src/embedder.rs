@@ -116,7 +116,7 @@ impl Embedder {
         }
 
         let embeddings = self.embed.split_embed(&document.unwrap(), true)?;
-        self.save_embeddings(embeddings, &id).await?;
+        self.save_embeddings(embeddings, id).await?;
 
         Ok(())
     }

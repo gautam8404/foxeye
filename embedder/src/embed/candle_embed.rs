@@ -19,6 +19,12 @@ pub struct CandleEmbedBuilder {
     pub overlap: usize,
 }
 
+impl Default for CandleEmbedBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CandleEmbedBuilder {
     pub fn new() -> Self {
         CandleEmbedBuilder {
@@ -177,7 +183,7 @@ impl CandleEmbed {
     }
     pub fn tokenize(&mut self, text: &str, truncate: bool, add_special: bool) -> Result<Encoding> {
         let tokenizer = self.get_tokenizer(truncate)?;
-        Ok(tokenizer.encode(text, add_special).map_err(Error::msg)?)
+        tokenizer.encode(text, add_special).map_err(Error::msg)
     }
 
     #[allow(dead_code)]
@@ -198,7 +204,7 @@ impl CandleEmbed {
         }
 
         if !truncate {
-            let count = self.token_count(&text, add_special)?;
+            let count = self.token_count(text, add_special)?;
             if count > self.model_input_size {
                 return Err(anyhow!(format!(
                     "expected {} tokens, got {} tokens",
@@ -207,7 +213,7 @@ impl CandleEmbed {
             }
         }
 
-        let encoding = self.tokenize(&text, truncate, add_special)?;
+        let encoding = self.tokenize(text, truncate, add_special)?;
         let device = &self.model.device;
         let tokens = encoding.get_ids().to_vec();
         let token_ids = Tensor::new(&tokens[..], device)?.unsqueeze(0)?;
@@ -252,6 +258,7 @@ impl CandleEmbed {
         Ok(embeddings)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn split_embed(
         &mut self,
         text: &str,
