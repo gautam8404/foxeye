@@ -29,11 +29,6 @@ CREATE TABLE IF NOT EXISTS chunk (
     updated_at TIMESTAMP DEFAULT now()
 );
 
--- page links
--- doc id, urls one to many
--- [doc_id] primary key
--- get all documents
--- loop, urls
 ALTER TABLE chunk ADD FOREIGN KEY (doc_id) REFERENCES document(doc_id);
 
 CREATE INDEX IF NOT EXISTS idx_url ON crawler_queue (url);

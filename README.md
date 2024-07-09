@@ -28,6 +28,23 @@ once parser gets the id it parses the raw html, extract text and urls from it, i
 after getting id from embedder it gets document from database using id and splits and embed it depending on model input size
 
 
+# Screenshots
+
+## Home
+
+![home](./media/foxeye_home.png)
+
+## Search
+
+### search results for "Pink Floyd"
+![pink floyd](./media/pink_floyd_search.png)
+
+### search results for "hello world in Go"
+![hello world in go](./media/go_hello_world.png)
+
+
+# Sequence Diagram
+
 ```mermaid
 sequenceDiagram
     participant C as Crawler
